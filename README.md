@@ -170,6 +170,29 @@ comparison report:
 .\.venv\Scripts\python.exe load_testing\compare_results.py --results-dir results\locust
 ```
 
+The script creates
+[comparison.csv](results/locust/comparison.csv) and
+[comparison.png](results/locust/comparison.png). The following results were
+recorded locally on November 26, 2026. Each run used five simulated users for
+two minutes, sending image predictions through Nginx to the API:
+
+| API replicas | Requests | Failures | Requests/second | Average (ms) | Median (ms) | p95 (ms) | p99 (ms) |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 356 | 0 | 3.00 | 144.2 | 120 | 230 | 440 |
+| 2 | 357 | 0 | 3.01 | 142.4 | 130 | 200 | 300 |
+| 3 | 350 | 0 | 2.96 | 151.8 | 140 | 170 | 210 |
+
+These are local, preliminary results, not cloud or production measurements.
+All three runs had no failed requests and similar throughput at this small
+load. The three-replica run had lower p95 and p99 latency, but the average
+latency was slightly higher. This test does not demonstrate increased
+throughput from adding replicas; more users and repeated runs would be needed
+to draw stronger scaling conclusions.
+
+The request totals above come from Locust's saved stats CSV files. The final
+terminal summaries showed slightly different totals (357, 359, and 352
+requests); use the saved CSV results as the source for the comparison report.
+
 ## Cloud deployment
 
 There is no cloud deployment configuration in this repository yet. The
