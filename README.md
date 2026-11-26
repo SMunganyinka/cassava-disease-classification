@@ -199,6 +199,13 @@ The dashboard and API are deployed separately: the API runs on Render and
 the dashboard runs on Streamlit Community Cloud. The prediction-only setup
 does not persist uploaded training images or enable retraining.
 
+Current deployment URLs:
+
+- Dashboard: <https://cassava-disease-classification-mkw2rfnypwzbqwnvdvtox5.streamlit.app/>
+- API: <https://cassava-disease-classification.onrender.com>
+- API health: <https://cassava-disease-classification.onrender.com/health>
+- Model status: <https://cassava-disease-classification.onrender.com/model/status>
+
 ### 1. Deploy the API to Render
 
 1. Push the deployment files and `models/cassava_model.keras` to GitHub. Make
@@ -210,25 +217,28 @@ does not persist uploaded training images or enable retraining.
 4. Add the environment variable `ENABLE_TRAINING_WORKFLOW` with value `false`.
    The Docker image starts Uvicorn on Render's assigned port and checks
    `/health`.
-5. Deploy. When it is live, open `https://<your-render-service>.onrender.com/health`
-   and confirm it returns `{"status":"ok"}`. Then check
-   `/model/status` and confirm `"loaded": true`. Copy the service's HTTPS URL.
+5. Deploy. When it is live, open
+   `https://cassava-disease-classification.onrender.com/health` and confirm it
+   returns `{"status":"ok"}`. Then check
+   `https://cassava-disease-classification.onrender.com/model/status` and
+   confirm `"loaded": true`.
 
 ### 2. Deploy the dashboard to Streamlit Community Cloud
 
 1. Create an app from this GitHub repository and select the `main` branch.
 2. Set the app file path to `dashboard/app.py` and the Python version to 3.12.
    The app dependencies are listed in `dashboard/requirements.txt`.
-3. In the app's **Settings → Secrets**, add the following TOML, replacing the
-   URL with the Render service URL from step 1:
+3. In the app's **Settings → Secrets**, add the following TOML:
 
    ```toml
-   API_URL = "https://<your-render-service>.onrender.com"
+   API_URL = "https://cassava-disease-classification.onrender.com"
    ENABLE_TRAINING_WORKFLOW = false
    ```
 
-4. Deploy or reboot the app. Open its URL, check that the API and model show
-   as available, and try a prediction with a cassava leaf image.
+4. Deploy or reboot the app at
+   <https://cassava-disease-classification-mkw2rfnypwzbqwnvdvtox5.streamlit.app/>.
+   Check that the API and model show as available, then try a prediction with a
+   cassava leaf image.
 
 Do not commit `.streamlit/secrets.toml`, Kaggle credentials, or the dataset.
 In this prediction-only deployment, the dashboard hides training controls
