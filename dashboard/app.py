@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import requests
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -52,8 +54,86 @@ def _deployment_setting(st, name: str, default: str) -> str:
         return default
 
 
+def _show_evaluation_metrics(st, metrics: dict[str, Any]) -> None:
+    """Render the held-out evaluation summary and per-class performance."""
+    split = metrics.get("evaluation_split")
+    test_samples = metrics.get("test_samples")
+    if split or test_samples is not None:
+        details = []
+        if isinstance(split, str):
+            details.append(split.replace("_", " "))
+        if isinstance(test_samples, int):
+            details.append(f"{test_samples:,} test images")
+        st.caption(" · ".join(details))
+
+    metric_fields = (
+        ("Accuracy", "accuracy"),
+        ("Balanced accuracy", "balanced_accuracy"),
+        ("Macro F1", "macro_f1"),
+        ("Weighted F1", "weighted_f1"),
+    )
+    available_metrics = []
+    for label, key in metric_fields:
+        value = metrics.get(key)
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            st.warning(f"Could not display the evaluation metric `{key}` because it is not numeric.")
+            continue
+        available_metrics.append((label, value))
+
+    if available_metrics:
+        columns = st.columns(len(available_metrics))
+        for column, (label, value) in zip(columns, available_metrics):
+            column.metric(label, f"{value:.1%}")
+
+    raw_matrix = metrics.get("confusion_matrix")
+    if raw_matrix is None:
+        st.info("The held-out evaluation report does not include a confusion matrix.")
+        return
+    if (
+        not isinstance(raw_matrix, list)
+        or len(raw_matrix) != len(CLASS_NAMES)
+        or any(not isinstance(row, list) or len(row) != len(CLASS_NAMES) for row in raw_matrix)
+        or any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for row in raw_matrix
+            for value in row
+        )
+    ):
+        st.warning("The saved confusion matrix is not a valid five-class count matrix.")
+        return
+
+    matrix = pd.DataFrame(raw_matrix, index=CLASS_NAMES, columns=CLASS_NAMES)
+    st.subheader("Confusion matrix")
+    st.caption(
+        "Rows are the actual disease classes and columns are the model predictions. "
+        "Per-class recall shows the share of each actual class that the model identifies correctly."
+    )
+    st.dataframe(
+        matrix,
+        alt="Held-out test confusion matrix with actual classes as rows and predicted classes as columns",
+    )
+
+    supports = [sum(row) for row in raw_matrix]
+    recalls = [
+        raw_matrix[index][index] / support if support else None
+        for index, support in enumerate(supports)
+    ]
+    recall_data = pd.DataFrame(
+        {"Disease class": CLASS_NAMES, "Recall": recalls}
+    )
+    st.bar_chart(
+        recall_data,
+        x="Disease class",
+        y="Recall",
+        y_label="Recall",
+        alt="Per-class recall on the held-out test set; lower bars indicate classes the model misses more often",
+    )
+
+
 def _show_optional_artifacts(st, results_dir: Path) -> None:
-    """Display locally generated artifacts when a later training run provides them."""
+    """Display committed evaluation data and any locally generated plots."""
     metrics_path = results_dir / "metrics" / "metrics.json"
     if metrics_path.is_file():
         try:
@@ -61,19 +141,27 @@ def _show_optional_artifacts(st, results_dir: Path) -> None:
         except (OSError, json.JSONDecodeError) as exc:
             st.error(f"Could not read local metrics: {exc}")
         else:
-            st.subheader("Latest evaluation metrics")
-            st.json(metrics)
+            if not isinstance(metrics, dict):
+                st.error("Could not display local metrics: the evaluation report must be a JSON object.")
+            else:
+                st.subheader("Held-out evaluation")
+                _show_evaluation_metrics(st, metrics)
     else:
-        st.info("No local evaluation metrics are available yet.")
+        st.info("No held-out evaluation report is available in this deployment.")
 
     plots_dir = results_dir / "plots"
     plots = sorted(plots_dir.glob("*.png")) if plots_dir.is_dir() else []
     if plots:
-        st.subheader("Generated plots")
+        st.subheader("Additional evaluation plots")
         for plot in plots:
-            st.image(str(plot), caption=plot.stem, width="stretch")
+            st.image(
+                str(plot),
+                caption=plot.stem.replace("_", " "),
+                alt=f"Evaluation plot: {plot.stem.replace('_', ' ')}",
+                width="stretch",
+            )
     else:
-        st.info("No generated plots are available yet.")
+        st.caption("No additional saved plot images are available.")
 
 
 def main() -> None:

@@ -101,6 +101,11 @@ The command prepares the image cache, trains the model, and evaluates it on a
 held-out test split. It saves the model to `models/cassava_model.keras` and
 metrics and plots under `results/`.
 
+The dashboard displays the held-out evaluation metrics, confusion matrix, and
+per-class recall from `results/metrics/metrics.json`. Keep this report in the
+repository so it is available in both cloud services; locally generated plot
+images are optional additions.
+
 ## Use retraining in the dashboard
 
 Retraining uses the base dataset together with images uploaded and labelled
@@ -208,9 +213,10 @@ Current deployment URLs:
 
 ### 1. Deploy the API to Render
 
-1. Push the deployment files and `models/cassava_model.keras` to GitHub. Make
-   sure you are allowed to publish the trained model under the dataset and
-   competition terms before adding it to a public repository.
+1. Push the deployment files, `models/cassava_model.keras`, and
+   `results/metrics/metrics.json` to GitHub. Make sure you are allowed to
+   publish the trained model under the dataset and competition terms before
+   adding it to a public repository.
 2. In Render, create a **New Web Service** and connect this GitHub repository.
 3. Choose **Docker** as the runtime and keep `Dockerfile` as the Dockerfile
    path.
