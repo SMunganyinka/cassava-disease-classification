@@ -1,0 +1,2 @@
+-r requirements.txt
+tensorflow>=2.16; python_version < "3.15"

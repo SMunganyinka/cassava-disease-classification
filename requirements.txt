@@ -1,0 +1,12 @@
+numpy
+pandas
+Pillow
+scikit-learn
+pytest
+fastapi
+python-multipart
+httpx
+uvicorn
+requests
+matplotlib
+kaggle

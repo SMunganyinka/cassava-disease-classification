@@ -1,0 +1,12 @@
+.git
+.venv
+.venv312
+.venv*
+.pytest_cache
+__pycache__
+data/cassava
+data/cassava_cache
+*.py[cod]
+*.ipynb
+kaggle.json
+
