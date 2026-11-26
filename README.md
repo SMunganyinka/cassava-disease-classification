@@ -3,7 +3,9 @@
 This project classifies cassava leaf images into five disease categories. It
 includes a FastAPI backend, a Streamlit dashboard, model training, and an
 optional Docker setup.
+## Demo Video
 
+youtube.com/watch?v=1dxw6npF6zk&feature=youtu.be
 ## What you need
 
 - Windows with PowerShell
