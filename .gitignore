@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.env
+data/
+artifacts/
+models/
+.env
+results/retraining_history.json
+.venv*/
+kaggle.json
