@@ -43,3 +43,13 @@ def test_dashboard_starts_without_exceptions() -> None:
 
     assert not app.exception
     assert app.title[0].value == "Cassava Leaf Disease Classifier"
+
+
+def test_dashboard_hides_training_controls_when_disabled(monkeypatch) -> None:
+    monkeypatch.setenv("ENABLE_TRAINING_WORKFLOW", "false")
+    app = AppTest.from_file(
+        Path(__file__).resolve().parents[1] / "dashboard" / "app.py"
+    ).run(timeout=15)
+
+    assert not app.exception
+    assert "Trigger retraining" not in [button.label for button in app.button]

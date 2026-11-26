@@ -195,10 +195,45 @@ requests); use the saved CSV results as the source for the comparison report.
 
 ## Cloud deployment
 
-There is no cloud deployment configuration in this repository yet. The
-Streamlit dashboard can be hosted separately from the FastAPI backend, but
-the dashboard needs the public URL of a separately hosted API. Do not use
-`localhost` for the API URL in a cloud deployment.
+The dashboard and API are deployed separately: the API runs on Render and
+the dashboard runs on Streamlit Community Cloud. The prediction-only setup
+does not persist uploaded training images or enable retraining.
+
+### 1. Deploy the API to Render
+
+1. Push the deployment files and `models/cassava_model.keras` to GitHub. Make
+   sure you are allowed to publish the trained model under the dataset and
+   competition terms before adding it to a public repository.
+2. In Render, create a **New Web Service** and connect this GitHub repository.
+3. Choose **Docker** as the runtime and keep `Dockerfile` as the Dockerfile
+   path.
+4. Add the environment variable `ENABLE_TRAINING_WORKFLOW` with value `false`.
+   The Docker image starts Uvicorn on Render's assigned port and checks
+   `/health`.
+5. Deploy. When it is live, open `https://<your-render-service>.onrender.com/health`
+   and confirm it returns `{"status":"ok"}`. Then check
+   `/model/status` and confirm `"loaded": true`. Copy the service's HTTPS URL.
+
+### 2. Deploy the dashboard to Streamlit Community Cloud
+
+1. Create an app from this GitHub repository and select the `main` branch.
+2. Set the app file path to `dashboard/app.py` and the Python version to 3.12.
+   The app dependencies are listed in `dashboard/requirements.txt`.
+3. In the app's **Settings → Secrets**, add the following TOML, replacing the
+   URL with the Render service URL from step 1:
+
+   ```toml
+   API_URL = "https://<your-render-service>.onrender.com"
+   ENABLE_TRAINING_WORKFLOW = false
+   ```
+
+4. Deploy or reboot the app. Open its URL, check that the API and model show
+   as available, and try a prediction with a cassava leaf image.
+
+Do not commit `.streamlit/secrets.toml`, Kaggle credentials, or the dataset.
+In this prediction-only deployment, the dashboard hides training controls
+and the API rejects upload/retraining requests. Render's local filesystem is
+not configured for durable training-data storage.
 
 ## Common issues
 

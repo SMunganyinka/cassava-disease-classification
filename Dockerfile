@@ -19,13 +19,16 @@ RUN python -m pip install --upgrade pip \
 COPY api ./api
 COPY src ./src
 COPY models ./models
-COPY results ./results
 COPY dashboard ./dashboard
+
+COPY results ./results
 
 RUN mkdir -p data/uploaded
 
-EXPOSE 8000 8501
+EXPOSE 8000 8501 10000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read())"
+    CMD python -c "import os, urllib.request; port = os.getenv('PORT', '8000'); urllib.request.urlopen('http://127.0.0.1:' + port + '/health', timeout=3).read()"
+
+CMD ["sh", "-c", "python -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
 

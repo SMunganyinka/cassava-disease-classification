@@ -126,6 +126,7 @@ def create_app(
     upload_dir: Path = Path("data/uploaded"),
     upload_manifest_path: Path | None = None,
     retrain_callback: Any | None = None,
+    training_workflow_enabled: bool | None = None,
 ) -> FastAPI:
     """Create an app with injectable model and storage paths for testing."""
     @asynccontextmanager
@@ -150,6 +151,12 @@ def create_app(
         Path(upload_manifest_path) if upload_manifest_path else Path(upload_dir) / "manifest.csv"
     )
     app.state.retrain_callback = retrain_callback
+    app.state.training_workflow_enabled = (
+        os.getenv("ENABLE_TRAINING_WORKFLOW", "true").strip().lower()
+        in {"1", "true", "yes"}
+        if training_workflow_enabled is None
+        else training_workflow_enabled
+    )
     app.state.started_at = time.time()
     app.state.monitor = monitor
 
@@ -203,6 +210,11 @@ def create_app(
         files: list[UploadFile] = File(...),
         labels: str = Form(...),
     ) -> dict[str, Any]:
+        if not app.state.training_workflow_enabled:
+            raise HTTPException(
+                status_code=501,
+                detail="Data upload and retraining are disabled in this deployment.",
+            )
         try:
             parsed_labels = json.loads(labels)
         except json.JSONDecodeError as exc:
@@ -245,6 +257,14 @@ def create_app(
 
     @app.post("/retrain", response_model=None)
     def retrain() -> Any:
+        if not app.state.training_workflow_enabled:
+            return JSONResponse(
+                status_code=501,
+                content={
+                    "status": "not_enabled",
+                    "detail": "Data upload and retraining are disabled in this deployment.",
+                },
+            )
         if app.state.retrain_callback is None:
             return JSONResponse(
                 status_code=501,

@@ -42,6 +42,16 @@ def api_request(
     return True, payload
 
 
+def _deployment_setting(st, name: str, default: str) -> str:
+    environment_value = os.getenv(name)
+    if environment_value is not None:
+        return environment_value
+    try:
+        return str(st.secrets.get(name, default))
+    except FileNotFoundError:
+        return default
+
+
 def _show_optional_artifacts(st, results_dir: Path) -> None:
     """Display locally generated artifacts when a later training run provides them."""
     metrics_path = results_dir / "metrics" / "metrics.json"
@@ -72,8 +82,17 @@ def main() -> None:
     st.set_page_config(page_title="Cassava Disease Classifier", page_icon="🌿", layout="wide")
     st.title("Cassava Leaf Disease Classifier")
     st.caption("Five-class image classification with a FastAPI backend.")
-    api_url = st.sidebar.text_input("API URL", value=os.getenv("API_URL", DEFAULT_API_URL))
+    api_url = st.sidebar.text_input(
+        "API URL",
+        value=_deployment_setting(st, "API_URL", DEFAULT_API_URL),
+    )
     results_dir = Path(st.sidebar.text_input("Results directory", "results"))
+    training_workflow_enabled = (
+        _deployment_setting(st, "ENABLE_TRAINING_WORKFLOW", "true")
+        .strip()
+        .lower()
+        in {"1", "true", "yes"}
+    )
 
     status_ok, status = api_request("GET", api_url, "/model/status")
     health_ok, health = api_request("GET", api_url, "/health")
@@ -106,46 +125,50 @@ def main() -> None:
         else:
             st.error(result)
 
-    st.header("Data upload")
-    uploaded_files = st.file_uploader(
-        "Upload labelled images for future retraining",
-        type=["jpg", "jpeg", "png", "bmp", "webp"],
-        accept_multiple_files=True,
-        key="training_files",
-    )
-    labels = [
-        st.selectbox(f"Label for {file.name}", CLASS_NAMES, key=f"label_{index}")
-        for index, file in enumerate(uploaded_files)
-    ]
-    if uploaded_files and st.button("Submit labelled data"):
-        label_ids = [CLASS_NAMES.index(label) for label in labels]
-        multipart = [
-            ("files", (file.name, file.getvalue(), file.type))
-            for file in uploaded_files
-        ]
-        success, result = api_request(
-            "POST",
-            api_url,
-            "/upload-data",
-            data={"labels": json.dumps(label_ids)},
-            files=multipart,
+    if training_workflow_enabled:
+        st.header("Data upload")
+        uploaded_files = st.file_uploader(
+            "Upload labelled images for future retraining",
+            type=["jpg", "jpeg", "png", "bmp", "webp"],
+            accept_multiple_files=True,
+            key="training_files",
         )
-        if success:
-            st.success(f"Accepted {result['accepted']} image(s).")
-        else:
-            st.error(result)
-
-    st.header("Model retraining")
-    st.info("Upload labelled images, then trigger the promotion-safe retraining workflow.")
-    if st.button("Trigger retraining"):
-        with st.spinner("Retraining the candidate model. This may take several minutes..."):
+        labels = [
+            st.selectbox(f"Label for {file.name}", CLASS_NAMES, key=f"label_{index}")
+            for index, file in enumerate(uploaded_files)
+        ]
+        if uploaded_files and st.button("Submit labelled data"):
+            label_ids = [CLASS_NAMES.index(label) for label in labels]
+            multipart = [
+                ("files", (file.name, file.getvalue(), file.type))
+                for file in uploaded_files
+            ]
             success, result = api_request(
-                "POST", api_url, "/retrain", timeout=1800
+                "POST",
+                api_url,
+                "/upload-data",
+                data={"labels": json.dumps(label_ids)},
+                files=multipart,
             )
-        if success:
-            st.json(result)
-        else:
-            st.warning(result)
+            if success:
+                st.success(f"Accepted {result['accepted']} image(s).")
+            else:
+                st.error(result)
+
+        st.header("Model retraining")
+        st.info("Upload labelled images, then trigger the promotion-safe retraining workflow.")
+        if st.button("Trigger retraining"):
+            with st.spinner("Retraining the candidate model. This may take several minutes..."):
+                success, result = api_request(
+                    "POST", api_url, "/retrain", timeout=1800
+                )
+            if success:
+                st.json(result)
+            else:
+                st.warning(result)
+    else:
+        st.header("Data upload and retraining")
+        st.info("Uploads and retraining are disabled in this prediction-only deployment.")
 
     st.header("Data visualizations and metrics")
     _show_optional_artifacts(st, results_dir)

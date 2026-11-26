@@ -68,6 +68,22 @@ def test_upload_data_requires_labels_and_validates_images(tmp_path: Path) -> Non
     assert (tmp_path / "manifest.csv").is_file()
 
 
+def test_training_workflow_can_be_disabled(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("ENABLE_TRAINING_WORKFLOW", "false")
+    client = TestClient(create_app(upload_dir=tmp_path))
+
+    upload_response = client.post(
+        "/upload-data",
+        data={"labels": json.dumps([2])},
+        files=[("files", ("leaf.png", image_bytes(), "image/png"))],
+    )
+    retrain_response = client.post("/retrain")
+
+    assert upload_response.status_code == 501
+    assert retrain_response.status_code == 501
+    assert not list(tmp_path.iterdir())
+
+
 def test_docker_configuration_files_exist() -> None:
     root = Path(__file__).resolve().parents[1]
 
